@@ -30,7 +30,7 @@ const PROJECTS: Project[] = [
     title: 'BMW Poster',
     category: 'Mockup Poster',
     image: 'https://media.discordapp.net/attachments/1477940732663828501/1478154290810978335/New_Project_1_1.png?ex=69a75df5&is=69a60c75&hm=80e2288cda80ce62b87ca4d7bf9db4f76e82f008d90f06c65a173e0522412b0e&animated=true',
-    description: 'An editorial-style poster design celebrating the engineering and aggressive styling of BMW M-series vehicles.',
+    description: 'An editorial-style poster design celebrating the engineering and aggressive styling of BMW vehicles.',
   },
   {
     id: 4,
