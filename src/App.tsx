@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { motion, useScroll, useTransform, AnimatePresence } from 'motion/react';
+import { motion, useScroll, useTransform, AnimatePresence, useSpring, useMotionValue } from 'motion/react';
 import { ArrowUpRight, Mail, X, Share2, CheckCircle2, AlertCircle } from 'lucide-react';
 
 type Project = {
@@ -103,7 +103,11 @@ export default function App() {
   const { scrollYProgress } = useScroll();
   const y = useTransform(scrollYProgress, [0, 1], ['-5%', '5%']);
   
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  const smoothX = useSpring(mouseX, { damping: 50, stiffness: 400 });
+  const smoothY = useSpring(mouseY, { damping: 50, stiffness: 400 });
+
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [contactForm, setContactForm] = useState({ 
     name: '', 
@@ -132,11 +136,32 @@ export default function App() {
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      setMousePosition({ x: e.clientX, y: e.clientY });
+      mouseX.set(e.clientX);
+      mouseY.set(e.clientY);
     };
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
+  }, [mouseX, mouseY]);
+
+  const handleShare = async (project: Project, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const shareData = {
+      title: project.title,
+      text: `Check out this project by Fin: ${project.title}`,
+      url: window.location.href
+    };
+    
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(`${shareData.text}\n${shareData.url}`);
+        alert("Link copied to clipboard!");
+      }
+    } catch (err) {
+      console.error("Error sharing:", err);
+    }
+  };
 
   const handleContactSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,10 +213,12 @@ export default function App() {
   return (
     <div id="top" className="min-h-screen bg-ink text-paper selection:bg-racing-red selection:text-white overflow-hidden">
       {/* Custom Cursor / Subtle Glow */}
-      <div 
-        className="pointer-events-none fixed inset-0 z-50 transition-opacity duration-300"
+      <motion.div 
+        className="pointer-events-none fixed top-0 left-0 w-[600px] h-[600px] -ml-[300px] -mt-[300px] z-50 rounded-full mix-blend-screen"
         style={{
-          background: `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(230, 46, 45, 0.03), transparent 40%)`
+          background: `radial-gradient(circle, rgba(230, 46, 45, 0.05) 0%, transparent 70%)`,
+          x: smoothX,
+          y: smoothY,
         }}
       />
 
@@ -229,7 +256,7 @@ export default function App() {
                 initial={{ opacity: 0, y: 40 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-                className="text-[12vw] md:text-[8vw] leading-[0.85] font-medium tracking-tighter"
+                className="text-[12vw] md:text-[8vw] lg:text-[6vw] xl:text-[5.5rem] leading-[0.85] font-medium tracking-tighter"
               >
                 I design.<br />
                 <span className="text-white/40">I innovate.</span><br />
@@ -246,8 +273,8 @@ export default function App() {
 
             {/* Right side visual showcase */}
             <motion.div
-              initial={{ opacity: 0, filter: 'blur(10px)' }}
-              animate={{ opacity: 1, filter: 'blur(0px)' }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 1.2, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
               className="hidden lg:grid grid-cols-2 gap-4 w-full max-w-lg ml-auto"
             >
@@ -365,12 +392,7 @@ export default function App() {
                     </p>
                   </div>
                   <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const subject = encodeURIComponent(`Check out this project: ${project.title}`);
-                      const body = encodeURIComponent(`I found this awesome project by Fin.\n\nProject: ${project.title}\nSee it here: https://finwuh.uk`);
-                      window.location.href = `mailto:?subject=${subject}&body=${body}`;
-                    }}
+                    onClick={(e) => handleShare(project, e)}
                     className="p-2 -mt-1 -mr-2 text-white/20 hover:text-racing-red transition-all duration-300 opacity-0 group-hover:opacity-100"
                     aria-label="Share project"
                   >
@@ -609,7 +631,7 @@ export default function App() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            className="relative w-full max-w-5xl bg-ink border border-white/10 shadow-2xl overflow-hidden flex flex-col md:flex-row"
+            className="relative w-full max-w-5xl max-h-[90vh] overflow-y-auto bg-ink border border-white/10 shadow-2xl flex flex-col md:flex-row"
           >
             <button 
               onClick={() => setSelectedProject(null)}
@@ -639,11 +661,7 @@ export default function App() {
               </p>
               
               <button
-                onClick={() => {
-                  const subject = encodeURIComponent(`Check out this project: ${selectedProject.title}`);
-                  const body = encodeURIComponent(`I found this awesome project by Fin.\n\nProject: ${selectedProject.title}\nSee it here: https://finwuh.uk`);
-                  window.location.href = `mailto:?subject=${subject}&body=${body}`;
-                }}
+                onClick={() => handleShare(selectedProject)}
                 className="inline-flex items-center gap-3 self-start px-6 py-3 bg-white/5 hover:bg-racing-red text-white font-mono text-xs uppercase tracking-widest transition-colors duration-300 border border-white/10 hover:border-racing-red"
               >
                 <Share2 className="w-4 h-4" />
