@@ -131,9 +131,17 @@ export default function App() {
     const hasClaimed = localStorage.getItem('freeGraphicClaimed');
     if (hasClaimed) return;
 
-    // 2% chance to win on any page load (set to 1 for testing)
-    if (Math.random() < 0.02) {
-      setTimeout(() => setShowWinnerModal(true), 2000);
+    const lastRollDate = localStorage.getItem('lastRollDate');
+    const today = new Date().toDateString();
+
+    // Only allow one roll per day to prevent spam refreshing
+    if (lastRollDate !== today) {
+      localStorage.setItem('lastRollDate', today);
+      
+      // 2% chance to win
+      if (Math.random() < 1) {
+        setTimeout(() => setShowWinnerModal(true), 2000);
+      }
     }
   }, []);
 
