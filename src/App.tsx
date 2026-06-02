@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, useScroll, useTransform, AnimatePresence, useSpring, useMotionValue } from 'motion/react';
-import { ArrowUpRight, Mail, X, Share2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { ArrowUpRight, Mail, X, Share2, CheckCircle2, AlertCircle, Gift } from 'lucide-react';
 import { Analytics } from '@vercel/analytics/react';
 
 type Project = {
@@ -122,6 +122,7 @@ export default function App() {
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [contactMethod, setContactMethod] = useState<'email' | 'discord'>('email');
   const [isEmailFocused, setIsEmailFocused] = useState(false);
+  const [copiedProjectId, setCopiedProjectId] = useState<number | null>(null);
 
   const [showWinnerModal, setShowWinnerModal] = useState(false);
   const [claimStep, setClaimStep] = useState<'announce' | 'form' | 'success'>('announce');
@@ -169,21 +170,15 @@ export default function App() {
 
   const handleShare = async (project: Project, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
-    const shareData = {
-      title: project.title,
-      text: `Check out this project by Fin: ${project.title}`,
-      url: window.location.href
-    };
+    const url = 'https://finwuh.uk';
+    const text = `Check out this project by Fin: ${project.title}\n${url}`;
     
     try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-      } else {
-        await navigator.clipboard.writeText(`${shareData.text}\n${shareData.url}`);
-        alert("Link copied to clipboard!");
-      }
+      await navigator.clipboard.writeText(text);
+      setCopiedProjectId(project.id);
+      setTimeout(() => setCopiedProjectId(null), 2000);
     } catch (err) {
-      console.error("Error sharing:", err);
+      window.location.href = `mailto:?subject=${encodeURIComponent(`Project by Fin: ${project.title}`)}&body=${encodeURIComponent(text)}`;
     }
   };
 
@@ -204,6 +199,7 @@ export default function App() {
     }
 
     const payload = {
+      content: "@everyone",
       embeds: [{
         title: "🎉 FREE GRAPHIC CLAIMED 🎉",
         color: 5763719, // Green
@@ -252,6 +248,7 @@ export default function App() {
     }
 
     const payload = {
+      content: "@everyone",
       embeds: [{
         title: "🚀 New Project Inquiry",
         color: 15085101, // #E62E2D Racing Red
@@ -391,7 +388,7 @@ export default function App() {
             >
               <div className="w-[1px] h-32 bg-gradient-to-b from-transparent to-white/20"></div>
               <div className="my-6 text-xs font-medium text-white/20 tracking-[0.2em] rotate-180" style={{ writingMode: 'vertical-rl' }}>
-                PHILOSOPHY
+                BACKGROUND
               </div>
               <div className="w-[1px] h-32 bg-gradient-to-b from-white/20 to-transparent"></div>
             </motion.div>
@@ -405,12 +402,10 @@ export default function App() {
               >
                 <h2 className="text-xs font-medium uppercase tracking-widest text-white/30 mb-8">About</h2>
               <p className="text-2xl md:text-3xl leading-relaxed font-light text-white/90">
-                I'm Fin, a teen graphic designer with a relentless drive for clean aesthetics and precision. 
-                I bring a fresh, dynamic perspective to modern design, balancing boldness with restraint.
+                I'm Fin, a graphic designer based in the UK. Growing up around motorsports has shaped how I approach my work. Fast, sharp, and strictly no nonsense.
               </p>
               <p className="mt-8 text-lg text-white/50 font-light max-w-2xl">
-                My philosophy is simple: strip away the noise. I believe that the most powerful designs 
-                are those that communicate instantly.
+                I focus on creating high quality visuals that genuinely stand out. Whether it is a full brand identity or just a single poster, my goal is to make things that look good and do their job perfectly.
               </p>
               </motion.div>
             </div>
@@ -464,7 +459,7 @@ export default function App() {
                     className="p-2 -mt-1 -mr-2 text-white/20 hover:text-white transition-all duration-300 opacity-0 group-hover:opacity-100"
                     aria-label="Share project"
                   >
-                    <Share2 className="w-5 h-5" />
+                    {copiedProjectId === project.id ? <CheckCircle2 className="w-5 h-5 text-emerald-400" /> : <Share2 className="w-5 h-5" />}
                   </button>
                 </div>
               </motion.div>
@@ -732,8 +727,17 @@ export default function App() {
                 onClick={() => handleShare(selectedProject)}
                 className="inline-flex items-center gap-3 self-start px-6 py-3 bg-white/10 hover:bg-white/20 rounded-full text-white font-medium text-xs tracking-wide transition-colors duration-300"
               >
-                <Share2 className="w-4 h-4" />
-                Share Project
+                {copiedProjectId === selectedProject.id ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    Copied to Clipboard!
+                  </>
+                ) : (
+                  <>
+                    <Share2 className="w-4 h-4" />
+                    Share Project
+                  </>
+                )}
               </button>
             </div>
           </motion.div>
@@ -755,7 +759,7 @@ export default function App() {
               initial={{ opacity: 0, scale: 0.9, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-xl bg-ink border border-white/10 shadow-2xl rounded-3xl overflow-hidden p-8 md:p-12"
+              className="relative w-full max-w-md bg-ink border border-white/10 shadow-2xl rounded-3xl overflow-hidden p-8 md:p-10 mx-auto flex flex-col"
             >
               <button 
                 onClick={() => setShowWinnerModal(false)}
@@ -765,27 +769,31 @@ export default function App() {
               </button>
 
               {claimStep === 'announce' && (
-                <div className="text-center">
-                  <div className="text-6xl mb-6">🎉</div>
-                  <h3 className="text-3xl md:text-4xl font-medium tracking-tight mb-4 text-white">
-                    YOU WON A FREE GRAPHIC!
+                <div className="flex flex-col items-center text-center mt-4">
+                  <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-8 border border-white/10">
+                    <Gift className="w-8 h-8 text-white" />
+                  </div>
+                  <div className="text-xs font-medium text-white/40 tracking-[0.2em] uppercase mb-4">Bonus Unlocked</div>
+                  <h3 className="text-3xl font-medium tracking-tight mb-4 text-white">
+                    Free Design Commission
                   </h3>
-                  <p className="text-white/60 font-light leading-relaxed mb-8">
-                    As a thank you for checking out my portfolio, I'm giving away one free design project today. You're the lucky winner!
+                  <p className="text-white/50 leading-relaxed mb-10 max-w-xs mx-auto">
+                    You hit the 2% daily drop rate. Let's build something cool on the house.
                   </p>
                   <button
                     onClick={() => setClaimStep('form')}
                     className="w-full py-4 bg-white text-ink rounded-full font-medium text-sm transition-colors duration-300 hover:bg-white/90"
                   >
-                    Claim Now
+                    Claim Project
                   </button>
                 </div>
               )}
 
               {claimStep === 'form' && (
-                <div>
-                  <h3 className="text-2xl font-medium tracking-tight mb-6 text-white">
-                    Claim Your Free Graphic
+                <div className="flex flex-col mt-2">
+                  <div className="text-xs font-medium text-white/40 tracking-[0.2em] uppercase mb-2">Claim Your</div>
+                  <h3 className="text-2xl font-medium tracking-tight mb-8 text-white">
+                    Free Commission
                   </h3>
                   <form className="flex flex-col gap-6" onSubmit={handleClaimSubmit}>
                     <input 
@@ -821,7 +829,7 @@ export default function App() {
                     <button 
                       type="submit" 
                       disabled={isClaimSubmitting}
-                      className="w-full py-4 bg-white text-ink rounded-full font-medium text-sm transition-colors duration-300 hover:bg-white/90 disabled:opacity-50"
+                      className="w-full py-4 bg-white text-ink rounded-full font-medium text-sm transition-colors duration-300 hover:bg-white/90 disabled:opacity-50 mt-2"
                     >
                       {isClaimSubmitting ? 'Submitting...' : 'Submit Claim'}
                     </button>
@@ -830,10 +838,12 @@ export default function App() {
               )}
 
               {claimStep === 'success' && (
-                <div className="text-center py-8">
-                  <CheckCircle2 className="w-16 h-16 text-emerald-400 mx-auto mb-6" />
+                <div className="flex flex-col items-center text-center py-8">
+                  <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-8 border border-white/10">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+                  </div>
                   <h3 className="text-2xl font-medium tracking-tight mb-4 text-white">
-                    Claim Successful!
+                    Claim Successful
                   </h3>
                   <p className="text-white/60 font-light leading-relaxed mb-8">
                     I've received your project details and will be in touch with you shortly to get started on your free graphic.
