@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, useScroll, useTransform, AnimatePresence, useSpring, useMotionValue } from 'motion/react';
 import { ArrowUpRight, Mail, X, Share2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Analytics } from '@vercel/analytics/react';
 
 type Project = {
   id: number;
@@ -68,11 +69,11 @@ const CustomSelect = ({
   return (
     <div className="relative" ref={ref}>
       <div
-        className={`w-full bg-transparent border-b py-3 flex justify-between items-center cursor-pointer transition-colors ${isOpen ? 'border-racing-red' : 'border-white/20'} ${value ? 'text-white' : 'text-white/30'}`}
+        className={`w-full bg-white/5 border rounded-xl px-4 py-4 flex justify-between items-center cursor-pointer transition-colors ${isOpen ? 'border-white/20 bg-white/10' : 'border-white/5'} ${value ? 'text-white' : 'text-white/30'}`}
         onClick={() => setIsOpen(!isOpen)}
       >
         <span>{value || placeholder}</span>
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-racing-red' : 'text-white/30'}`}><path d="m6 9 6 6 6-6"/></svg>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`transition-transform duration-300 ${isOpen ? 'rotate-180 text-white' : 'text-white/30'}`}><path d="m6 9 6 6 6-6"/></svg>
       </div>
       <AnimatePresence>
         {isOpen && (
@@ -81,12 +82,12 @@ const CustomSelect = ({
             animate={{ opacity: 1, y: 0, scaleY: 1 }}
             exit={{ opacity: 0, y: -10, scaleY: 0.95 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
-            className="absolute top-full left-0 w-full mt-2 bg-ink border border-white/10 shadow-2xl z-50 flex flex-col origin-top"
+            className="absolute top-full left-0 w-full mt-2 bg-ink border border-white/10 rounded-2xl shadow-2xl z-50 flex flex-col origin-top overflow-hidden p-2"
           >
             {options.map(opt => (
               <div
                 key={opt}
-                className="px-4 py-3 hover:bg-white/5 cursor-pointer text-white/80 hover:text-white transition-colors text-sm"
+                className="px-4 py-3 rounded-lg hover:bg-white/5 cursor-pointer text-white/60 hover:text-white transition-colors text-sm"
                 onClick={() => { onChange(opt); setIsOpen(false); }}
               >
                 {opt}
@@ -121,6 +122,29 @@ export default function App() {
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [contactMethod, setContactMethod] = useState<'email' | 'discord'>('email');
   const [isEmailFocused, setIsEmailFocused] = useState(false);
+
+  const [showWinnerModal, setShowWinnerModal] = useState(false);
+  const [claimStep, setClaimStep] = useState<'announce' | 'form' | 'success'>('announce');
+  const [claimForm, setClaimForm] = useState({ name: '', contact: '', projectType: '', details: '' });
+  const [isClaimSubmitting, setIsClaimSubmitting] = useState(false);
+
+  useEffect(() => {
+    const hasClaimed = localStorage.getItem('freeGraphicClaimed');
+    if (hasClaimed) return;
+
+    const lastRollDate = localStorage.getItem('lastRollDate');
+    const today = new Date().toDateString();
+
+    // Only allow one roll per day to prevent spam refreshing
+    if (lastRollDate !== today) {
+      localStorage.setItem('lastRollDate', today);
+      
+      // 2% chance to win
+      if (Math.random() < 1) {
+        setTimeout(() => setShowWinnerModal(true), 2000);
+      }
+    }
+  }, []);
 
   // Prevent scrolling when modal is open
   useEffect(() => {
@@ -160,6 +184,51 @@ export default function App() {
       }
     } catch (err) {
       console.error("Error sharing:", err);
+    }
+  };
+
+  const handleClaimSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!claimForm.projectType) {
+      alert("Please select a project type.");
+      return;
+    }
+
+    setIsClaimSubmitting(true);
+    const webhookUrl = import.meta.env.VITE_DISCORD_WEBHOOK_URL;
+
+    if (!webhookUrl) {
+      console.error("Discord webhook URL is not configured.");
+      setIsClaimSubmitting(false);
+      return;
+    }
+
+    const payload = {
+      embeds: [{
+        title: "🎉 FREE GRAPHIC CLAIMED 🎉",
+        color: 5763719, // Green
+        fields: [
+          { name: "👤 Name", value: claimForm.name, inline: true },
+          { name: "📞 Contact", value: claimForm.contact, inline: true },
+          { name: "📁 Project Type", value: claimForm.projectType, inline: true },
+          { name: "📝 Details", value: claimForm.details }
+        ],
+        timestamp: new Date().toISOString()
+      }]
+    };
+
+    try {
+      await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      setClaimStep('success');
+      localStorage.setItem('freeGraphicClaimed', 'true');
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsClaimSubmitting(false);
     }
   };
 
@@ -216,7 +285,7 @@ export default function App() {
       <motion.div 
         className="pointer-events-none fixed top-0 left-0 w-[600px] h-[600px] -ml-[300px] -mt-[300px] z-50 rounded-full mix-blend-screen"
         style={{
-          background: `radial-gradient(circle, rgba(230, 46, 45, 0.05) 0%, transparent 70%)`,
+          background: `radial-gradient(circle, rgba(255, 255, 255, 0.03) 0%, transparent 70%)`,
           x: smoothX,
           y: smoothY,
         }}
@@ -231,15 +300,15 @@ export default function App() {
           transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           className="flex items-center gap-1.5 group"
         >
-          <span className="text-3xl font-serif font-light tracking-wide lowercase text-white/90 group-hover:text-white transition-colors">
-            fin
+          <span className="text-3xl font-medium tracking-tight lowercase text-white/90 group-hover:text-white transition-colors">
+            fin.
           </span>
         </motion.a>
         <motion.div 
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
-          className="flex gap-6 text-sm font-mono text-white/60 uppercase tracking-widest"
+          className="flex gap-8 text-sm font-medium text-white/50 tracking-wide"
         >
           <a href="#about" className="hover:text-white transition-colors">About</a>
           <a href="#work" className="hover:text-white transition-colors">Work</a>
@@ -263,11 +332,11 @@ export default function App() {
                 I create.
               </motion.h1>
               
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, width: 0 }}
                 animate={{ opacity: 1, width: "100%" }}
                 transition={{ duration: 1.5, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                className="h-[1px] bg-gradient-to-r from-racing-red to-transparent max-w-md mt-12"
+                className="h-[1px] bg-gradient-to-r from-white/20 to-transparent max-w-md mt-12"
               />
             </div>
 
@@ -279,31 +348,31 @@ export default function App() {
               className="hidden lg:grid grid-cols-2 gap-4 w-full max-w-lg ml-auto"
             >
               <div 
-                className="col-span-2 aspect-[21/9] bg-white/5 border border-white/10 overflow-hidden relative group cursor-pointer"
+                className="col-span-2 aspect-[21/9] bg-white/5 border border-white/5 rounded-3xl overflow-hidden relative group cursor-pointer"
                 onClick={() => setSelectedProject(PROJECTS[0])}
               >
-                <img src={PROJECTS[0].image} alt="Work" className="w-full h-full object-cover opacity-50 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700" />
+                <img src={PROJECTS[0].image} alt="Work" className="w-full h-full object-cover opacity-70 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700" />
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-ink/40 backdrop-blur-sm">
-                  <span className="font-mono text-xs uppercase tracking-widest text-white border border-white/20 px-4 py-2 bg-black/50">View Project</span>
+                  <span className="text-xs uppercase tracking-widest font-medium text-white px-6 py-3 rounded-full bg-black/60 shadow-xl border border-white/10">View Project</span>
                 </div>
               </div>
               <div 
-                className="aspect-square bg-white/5 border border-white/10 overflow-hidden relative group cursor-pointer"
+                className="aspect-square bg-white/5 border border-white/5 rounded-3xl overflow-hidden relative group cursor-pointer"
                 onClick={() => setSelectedProject(PROJECTS[1])}
               >
-                <img src={PROJECTS[1].image} alt="Work" className="w-full h-full object-cover opacity-50 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700" />
+                <img src={PROJECTS[1].image} alt="Work" className="w-full h-full object-cover opacity-70 group-hover:opacity-100 group-hover:scale-105 transition-all duration-700" />
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-ink/40 backdrop-blur-sm">
-                  <span className="font-mono text-xs uppercase tracking-widest text-white border border-white/20 px-4 py-2 bg-black/50">View</span>
+                  <span className="text-xs uppercase tracking-widest font-medium text-white px-6 py-3 rounded-full bg-black/60 shadow-xl border border-white/10">View Project</span>
                 </div>
               </div>
               <a 
                 href="#work"
-                className="aspect-square bg-white/5 hover:bg-white/10 border border-white/10 overflow-hidden relative group flex flex-col items-center justify-center p-6 text-center transition-colors duration-500"
+                className="aspect-square bg-white/5 hover:bg-white/10 border border-white/5 rounded-3xl overflow-hidden relative group flex flex-col items-center justify-center p-6 text-center transition-colors duration-500"
               >
-                <div className="w-12 h-12 rounded-full border border-racing-red/50 flex items-center justify-center mb-4 group-hover:bg-racing-red transition-colors duration-500">
-                  <ArrowUpRight className="w-5 h-5 text-racing-red group-hover:text-white transition-colors duration-500" />
+                <div className="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center mb-4 group-hover:bg-white transition-colors duration-500">
+                  <ArrowUpRight className="w-5 h-5 text-white/50 group-hover:text-ink transition-colors duration-500" />
                 </div>
-                <span className="font-mono text-xs uppercase tracking-widest text-white/60 group-hover:text-white transition-colors duration-500">Explore<br/>Portfolio</span>
+                <span className="text-sm font-medium tracking-wide text-white/40 group-hover:text-white transition-colors duration-500">Explore<br/>Portfolio</span>
               </a>
             </motion.div>
           </div>
@@ -320,11 +389,11 @@ export default function App() {
               transition={{ duration: 1.5, ease: "easeOut" }}
               className="hidden md:flex flex-col items-center mt-2"
             >
-              <div className="w-[1px] h-32 bg-gradient-to-b from-transparent to-racing-red"></div>
-              <div className="my-6 text-xs font-mono text-racing-red tracking-widest rotate-180" style={{ writingMode: 'vertical-rl' }}>
+              <div className="w-[1px] h-32 bg-gradient-to-b from-transparent to-white/20"></div>
+              <div className="my-6 text-xs font-medium text-white/20 tracking-[0.2em] rotate-180" style={{ writingMode: 'vertical-rl' }}>
                 PHILOSOPHY
               </div>
-              <div className="w-[1px] h-32 bg-gradient-to-b from-racing-red to-transparent opacity-30"></div>
+              <div className="w-[1px] h-32 bg-gradient-to-b from-white/20 to-transparent"></div>
             </motion.div>
 
             <div className="max-w-3xl">
@@ -334,15 +403,14 @@ export default function App() {
                 viewport={{ once: true, margin: "-100px" }}
                 transition={{ duration: 0.8 }}
               >
-                <h2 className="text-sm font-mono text-racing-red uppercase tracking-widest mb-8">01 // About</h2>
-              <p className="text-2xl md:text-4xl leading-tight font-light text-white/80">
+                <h2 className="text-xs font-medium uppercase tracking-widest text-white/30 mb-8">About</h2>
+              <p className="text-2xl md:text-3xl leading-relaxed font-light text-white/90">
                 I'm Fin, a teen graphic designer with a relentless drive for clean aesthetics and precision. 
-                Inspired by the speed, engineering, and visual language of motorsports, I bring a fresh, 
-                dynamic perspective to modern design.
+                I bring a fresh, dynamic perspective to modern design, balancing boldness with restraint.
               </p>
               <p className="mt-8 text-lg text-white/50 font-light max-w-2xl">
                 My philosophy is simple: strip away the noise. I believe that the most powerful designs 
-                are those that communicate instantly, balancing bold innovation with subtle restraint.
+                are those that communicate instantly.
               </p>
               </motion.div>
             </div>
@@ -358,7 +426,7 @@ export default function App() {
             transition={{ duration: 0.8 }}
             className="mb-16 flex justify-between items-end"
           >
-            <h2 className="text-sm font-mono text-racing-red uppercase tracking-widest">02 // Selected Work</h2>
+            <h2 className="text-xs font-medium uppercase tracking-widest text-white/30">Selected Work</h2>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-16">
@@ -372,7 +440,7 @@ export default function App() {
                 className={`group cursor-pointer ${index % 2 !== 0 ? 'md:mt-32' : ''}`}
                 onClick={() => setSelectedProject(project)}
               >
-                <div className="relative overflow-hidden bg-white/5 aspect-[3/2] mb-6">
+                <div className="relative overflow-hidden bg-white/5 aspect-[3/2] rounded-3xl mb-6">
                   <motion.img 
                     style={{ y, WebkitFontSmoothing: 'antialiased' }}
                     src={project.image} 
@@ -384,16 +452,16 @@ export default function App() {
                 </div>
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="text-xl font-medium tracking-tight group-hover:text-racing-red transition-colors duration-500">
+                    <h3 className="text-xl font-medium tracking-tight group-hover:text-white transition-colors duration-500">
                       {project.title}
                     </h3>
-                    <p className="text-sm font-mono text-white/50 mt-2 uppercase tracking-wider">
+                    <p className="text-sm text-white/40 mt-1">
                       {project.category}
                     </p>
                   </div>
                   <button
                     onClick={(e) => handleShare(project, e)}
-                    className="p-2 -mt-1 -mr-2 text-white/20 hover:text-racing-red transition-all duration-300 opacity-0 group-hover:opacity-100"
+                    className="p-2 -mt-1 -mr-2 text-white/20 hover:text-white transition-all duration-300 opacity-0 group-hover:opacity-100"
                     aria-label="Share project"
                   >
                     <Share2 className="w-5 h-5" />
@@ -413,17 +481,17 @@ export default function App() {
               viewport={{ once: true, margin: "-100px" }}
               transition={{ duration: 0.8 }}
             >
-              <h2 className="text-sm font-mono text-racing-red uppercase tracking-widest mb-12">03 // Start a Project</h2>
+              <h2 className="text-xs font-medium uppercase tracking-widest text-white/30 mb-8">Start a Project</h2>
               <h3 className="text-[10vw] md:text-[5vw] leading-[0.9] font-medium tracking-tighter mb-12">
                 Let's build something <br/>
-                <span className="text-white/40 hover:text-white transition-colors duration-500 cursor-default">fast.</span>
+                <span className="text-white/40 hover:text-white transition-colors duration-500 cursor-default">beautiful.</span>
               </h3>
               
               <a 
                 href="mailto:contact@finwuh.uk" 
-                className="inline-flex items-center gap-4 text-xl md:text-2xl border-b border-white/20 pb-2 hover:border-racing-red transition-colors duration-300 group"
+                className="inline-flex items-center gap-4 text-xl md:text-2xl border-b border-white/10 pb-2 hover:border-white transition-colors duration-300 group"
               >
-                <Mail className="w-6 h-6 text-white/50 group-hover:text-racing-red transition-colors" />
+                <Mail className="w-6 h-6 text-white/30 group-hover:text-white transition-colors" />
                 contact@finwuh.uk
               </a>
             </motion.div>
@@ -435,7 +503,7 @@ export default function App() {
               transition={{ duration: 0.8, delay: 0.2 }}
               className="w-full max-w-md md:ml-auto mt-12 md:mt-0"
             >
-              <form className="flex flex-col gap-8" onSubmit={handleContactSubmit}>
+              <form className="flex flex-col gap-6" onSubmit={handleContactSubmit}>
                 <motion.div initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="relative">
                   <input 
                     type="text" 
@@ -443,7 +511,7 @@ export default function App() {
                     placeholder="Name" 
                     value={contactForm.name}
                     onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
-                    className="w-full bg-transparent border-b border-white/20 py-3 text-white placeholder-white/30 focus:outline-none focus:border-racing-red transition-colors peer" 
+                    className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-4 text-white placeholder-white/30 focus:outline-none focus:border-white/20 focus:bg-white/10 transition-all peer" 
                     required 
                   />
                 </motion.div>
@@ -456,7 +524,7 @@ export default function App() {
                     onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
                     onFocus={() => setIsEmailFocused(true)}
                     onBlur={() => setTimeout(() => setIsEmailFocused(false), 200)}
-                    className="w-full bg-transparent border-b border-white/20 py-3 text-white placeholder-white/30 focus:outline-none focus:border-racing-red transition-colors peer" 
+                    className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-4 text-white placeholder-white/30 focus:outline-none focus:border-white/20 focus:bg-white/10 transition-all peer" 
                     required 
                   />
                   <AnimatePresence>
@@ -470,7 +538,7 @@ export default function App() {
                           setContactMethod(contactMethod === 'email' ? 'discord' : 'email');
                           setContactForm({ ...contactForm, email: '' });
                         }}
-                        className="absolute right-0 top-1/2 -translate-y-1/2 text-[10px] font-mono uppercase tracking-widest text-white/50 hover:text-racing-red transition-colors bg-ink px-3 py-1.5 rounded border border-white/10"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-medium uppercase tracking-widest text-white/50 hover:text-white transition-colors bg-white/10 px-3 py-1.5 rounded-lg border border-white/5"
                       >
                         Use {contactMethod === 'email' ? 'Discord Username' : 'Email'}
                       </motion.button>
@@ -498,7 +566,7 @@ export default function App() {
                             placeholder="Specify Project Type" 
                             value={contactForm.customProjectType}
                             onChange={(e) => setContactForm({ ...contactForm, customProjectType: e.target.value })}
-                            className="w-full bg-transparent border-b border-white/20 py-3 text-white placeholder-white/30 focus:outline-none focus:border-racing-red transition-colors text-sm" 
+                            className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-white/20 focus:bg-white/10 transition-all text-sm mt-3" 
                             required 
                           />
                         </motion.div>
@@ -525,7 +593,7 @@ export default function App() {
                             placeholder="Specify Budget" 
                             value={contactForm.customBudget}
                             onChange={(e) => setContactForm({ ...contactForm, customBudget: e.target.value })}
-                            className="w-full bg-transparent border-b border-white/20 py-3 text-white placeholder-white/30 focus:outline-none focus:border-racing-red transition-colors text-sm" 
+                            className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-white/20 focus:bg-white/10 transition-all text-sm mt-3" 
                             required 
                           />
                         </motion.div>
@@ -540,7 +608,7 @@ export default function App() {
                     rows={4} 
                     value={contactForm.message}
                     onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
-                    className="w-full bg-transparent border-b border-white/20 py-3 text-white placeholder-white/30 focus:outline-none focus:border-racing-red transition-colors peer resize-none" 
+                    className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-4 text-white placeholder-white/30 focus:outline-none focus:border-white/20 focus:bg-white/10 transition-all peer resize-none" 
                     required
                   ></textarea>
                 </motion.div>
@@ -548,7 +616,7 @@ export default function App() {
                 <motion.div initial={{ opacity: 0, y: 10 }} whileInView={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="flex items-center gap-4">
                   <button 
                     type="submit" 
-                    className="self-start px-8 py-4 bg-white/5 hover:bg-racing-red text-white font-mono text-sm uppercase tracking-widest transition-colors duration-300 border border-white/10 hover:border-racing-red"
+                    className="self-start px-8 py-4 bg-white/10 hover:bg-white/20 rounded-full text-white font-medium text-sm transition-colors duration-300"
                   >
                     Request Quote
                   </button>
@@ -559,7 +627,7 @@ export default function App() {
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0 }}
-                        className="flex items-center gap-2 text-emerald-400 text-sm font-mono"
+                        className="flex items-center gap-2 text-emerald-400 text-sm font-medium"
                       >
                         <CheckCircle2 className="w-4 h-4" />
                         Sent successfully
@@ -570,7 +638,7 @@ export default function App() {
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0 }}
-                        className="flex items-center gap-2 text-racing-red text-sm font-mono"
+                        className="flex items-center gap-2 text-red-400 text-sm font-medium"
                       >
                         <AlertCircle className="w-4 h-4" />
                         Failed to send
@@ -579,9 +647,9 @@ export default function App() {
                   </AnimatePresence>
                 </motion.div>
 
-                <div className="mt-2 flex items-center gap-3 text-xs font-mono text-white/40 uppercase tracking-widest">
+                <div className="mt-2 flex items-center gap-3 text-xs font-medium text-white/40 uppercase tracking-widest">
                   <span>or dm</span>
-                  <a href="https://discord.com/users/finwuh" target="_blank" rel="noreferrer" className="flex items-center gap-2 text-white/80 hover:text-racing-red transition-colors group">
+                  <a href="https://discord.com/users/finwuh" target="_blank" rel="noreferrer" className="flex items-center gap-2 text-white/60 hover:text-white transition-colors group">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 127.14 96.36" className="w-4 h-4 fill-current">
                       <path d="M107.7,8.07A105.15,105.15,0,0,0,81.47,0a72.06,72.06,0,0,0-3.36,6.83A97.68,97.68,0,0,0,49,6.83,72.37,72.37,0,0,0,45.64,0,105.89,105.89,0,0,0,19.39,8.09C2.79,32.65-1.71,56.6.54,80.21h0A105.73,105.73,0,0,0,32.71,96.36,77.7,77.7,0,0,0,39.6,85.25a68.42,68.42,0,0,1-10.85-5.18c.91-.66,1.8-1.34,2.66-2a75.57,75.57,0,0,0,64.32,0c.87.71,1.76,1.39,2.66,2a67.58,67.58,0,0,1-10.87,5.19,77,77,0,0,0,6.89,11.1A105.25,105.25,0,0,0,126.6,80.22h0C129.24,52.84,122.09,29.11,107.7,8.07ZM42.45,65.69C36.18,65.69,31,60,31,53s5-12.74,11.43-12.74S54,46,53.89,53,48.84,65.69,42.45,65.69Zm42.24,0C78.41,65.69,73.31,60,73.31,53s5-12.74,11.43-12.74S96.2,46,96.09,53,91.08,65.69,84.69,65.69Z"/>
                     </svg>
@@ -595,7 +663,7 @@ export default function App() {
       </main>
 
       {/* Footer */}
-      <footer className="py-8 px-6 md:px-12 flex flex-col md:flex-row justify-between items-center text-xs font-mono text-white/40 uppercase tracking-widest border-t border-white/10">
+      <footer className="py-8 px-6 md:px-12 flex flex-col md:flex-row justify-between items-center text-xs font-medium text-white/40 uppercase tracking-widest border-t border-white/5">
         <p>© 2026 Fin All rights reserved.</p>
         <p className="mt-4 md:mt-0 flex items-center gap-2">
           Based in the UK
@@ -650,7 +718,7 @@ export default function App() {
             </div>
             
             <div className="w-full md:w-1/3 p-8 md:p-12 flex flex-col justify-center">
-              <p className="text-xs font-mono text-racing-red uppercase tracking-widest mb-4">
+              <p className="text-xs font-medium text-white/40 uppercase tracking-widest mb-4">
                 {selectedProject.category}
               </p>
               <h3 className="text-3xl font-medium tracking-tight mb-6">
@@ -662,7 +730,7 @@ export default function App() {
               
               <button
                 onClick={() => handleShare(selectedProject)}
-                className="inline-flex items-center gap-3 self-start px-6 py-3 bg-white/5 hover:bg-racing-red text-white font-mono text-xs uppercase tracking-widest transition-colors duration-300 border border-white/10 hover:border-racing-red"
+                className="inline-flex items-center gap-3 self-start px-6 py-3 bg-white/10 hover:bg-white/20 rounded-full text-white font-medium text-xs tracking-wide transition-colors duration-300"
               >
                 <Share2 className="w-4 h-4" />
                 Share Project
@@ -671,6 +739,118 @@ export default function App() {
           </motion.div>
         </div>
       )}
+
+      {/* Winner Modal */}
+      <AnimatePresence>
+        {showWinnerModal && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 md:p-12">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-ink/90 backdrop-blur-md"
+            />
+            
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-xl bg-ink border border-white/10 shadow-2xl rounded-3xl overflow-hidden p-8 md:p-12"
+            >
+              <button 
+                onClick={() => setShowWinnerModal(false)}
+                className="absolute top-4 right-4 z-10 p-2 text-white/50 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+
+              {claimStep === 'announce' && (
+                <div className="text-center">
+                  <div className="text-6xl mb-6">🎉</div>
+                  <h3 className="text-3xl md:text-4xl font-medium tracking-tight mb-4 text-white">
+                    YOU WON A FREE GRAPHIC!
+                  </h3>
+                  <p className="text-white/60 font-light leading-relaxed mb-8">
+                    As a thank you for checking out my portfolio, I'm giving away one free design project today. You're the lucky winner!
+                  </p>
+                  <button
+                    onClick={() => setClaimStep('form')}
+                    className="w-full py-4 bg-white text-ink rounded-full font-medium text-sm transition-colors duration-300 hover:bg-white/90"
+                  >
+                    Claim Now
+                  </button>
+                </div>
+              )}
+
+              {claimStep === 'form' && (
+                <div>
+                  <h3 className="text-2xl font-medium tracking-tight mb-6 text-white">
+                    Claim Your Free Graphic
+                  </h3>
+                  <form className="flex flex-col gap-6" onSubmit={handleClaimSubmit}>
+                    <input 
+                      type="text" 
+                      placeholder="Name" 
+                      value={claimForm.name}
+                      onChange={(e) => setClaimForm({ ...claimForm, name: e.target.value })}
+                      className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-4 text-white placeholder-white/30 focus:outline-none focus:border-white/20 focus:bg-white/10 transition-all" 
+                      required 
+                    />
+                    <input 
+                      type="text" 
+                      placeholder="Email or Discord Username" 
+                      value={claimForm.contact}
+                      onChange={(e) => setClaimForm({ ...claimForm, contact: e.target.value })}
+                      className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-4 text-white placeholder-white/30 focus:outline-none focus:border-white/20 focus:bg-white/10 transition-all" 
+                      required 
+                    />
+                    <CustomSelect 
+                      value={claimForm.projectType}
+                      onChange={(val) => setClaimForm({ ...claimForm, projectType: val })}
+                      options={['Brand Identity', 'Streamer Graphics', 'Poster / Editorial', 'Merchandise', 'Other']}
+                      placeholder="Project Type"
+                    />
+                    <textarea 
+                      placeholder="Project Details & Ideas" 
+                      rows={3} 
+                      value={claimForm.details}
+                      onChange={(e) => setClaimForm({ ...claimForm, details: e.target.value })}
+                      className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-4 text-white placeholder-white/30 focus:outline-none focus:border-white/20 focus:bg-white/10 transition-all resize-none" 
+                      required
+                    ></textarea>
+                    <button 
+                      type="submit" 
+                      disabled={isClaimSubmitting}
+                      className="w-full py-4 bg-white text-ink rounded-full font-medium text-sm transition-colors duration-300 hover:bg-white/90 disabled:opacity-50"
+                    >
+                      {isClaimSubmitting ? 'Submitting...' : 'Submit Claim'}
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              {claimStep === 'success' && (
+                <div className="text-center py-8">
+                  <CheckCircle2 className="w-16 h-16 text-emerald-400 mx-auto mb-6" />
+                  <h3 className="text-2xl font-medium tracking-tight mb-4 text-white">
+                    Claim Successful!
+                  </h3>
+                  <p className="text-white/60 font-light leading-relaxed mb-8">
+                    I've received your project details and will be in touch with you shortly to get started on your free graphic.
+                  </p>
+                  <button
+                    onClick={() => setShowWinnerModal(false)}
+                    className="px-8 py-3 bg-white/10 hover:bg-white/20 rounded-full text-white font-medium text-sm transition-colors duration-300"
+                  >
+                    Close
+                  </button>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+      <Analytics />
     </div>
   );
 }
