@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, useScroll, useTransform, AnimatePresence, useSpring, useMotionValue } from 'motion/react';
-import { ArrowUpRight, Mail, X, Share2, CheckCircle2, AlertCircle, Gift } from 'lucide-react';
+import { ArrowUpRight, Mail, X, Share2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Analytics } from '@vercel/analytics/react';
 
 type Project = {
@@ -124,29 +124,6 @@ export default function App() {
   const [isEmailFocused, setIsEmailFocused] = useState(false);
   const [copiedProjectId, setCopiedProjectId] = useState<number | null>(null);
 
-  const [showWinnerModal, setShowWinnerModal] = useState(false);
-  const [claimStep, setClaimStep] = useState<'announce' | 'form' | 'success'>('announce');
-  const [claimForm, setClaimForm] = useState({ name: '', contact: '', projectType: '', details: '' });
-  const [isClaimSubmitting, setIsClaimSubmitting] = useState(false);
-
-  useEffect(() => {
-    const hasClaimed = localStorage.getItem('freeGraphicClaimed');
-    if (hasClaimed) return;
-
-    const lastRollDate = localStorage.getItem('lastRollDate');
-    const today = new Date().toDateString();
-
-    // Only allow one roll per day to prevent spam refreshing
-    if (lastRollDate !== today) {
-      localStorage.setItem('lastRollDate', today);
-      
-      // 2% chance to win
-      if (Math.random() < 1) {
-        setTimeout(() => setShowWinnerModal(true), 2000);
-      }
-    }
-  }, []);
-
   // Prevent scrolling when modal is open
   useEffect(() => {
     if (selectedProject) {
@@ -180,53 +157,6 @@ export default function App() {
     } catch (err) {
       window.location.href = `mailto:?subject=${encodeURIComponent(`Project by Fin: ${project.title}`)}&body=${encodeURIComponent(text)}`;
     }
-  };
-
-  const handleClaimSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!claimForm.projectType) {
-      alert("Please select a project type.");
-      return;
-    }
-
-    setIsClaimSubmitting(true);
-    const webhookUrl = import.meta.env.VITE_DISCORD_WEBHOOK_URL;
-
-    if (!webhookUrl) {
-      console.error("Discord webhook URL is not configured.");
-      setIsClaimSubmitting(false);
-      return;
-    }
-
-    const payload = {
-      content: "@everyone",
-      embeds: [{
-        title: "🎉 FREE GRAPHIC CLAIMED 🎉",
-        color: 5763719, // Green
-        fields: [
-          { name: "👤 Name", value: claimForm.name, inline: true },
-          { name: "📞 Contact", value: claimForm.contact, inline: true },
-          { name: "📁 Project Type", value: claimForm.projectType, inline: true },
-          { name: "📝 Details", value: claimForm.details }
-        ],
-        timestamp: new Date().toISOString()
-      }]
-    };
-
-    try {
-      await fetch(webhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      setClaimStep('success');
-      localStorage.setItem('freeGraphicClaimed', 'true');
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsClaimSubmitting(false);
-    }
-  };
 
   const handleContactSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -743,124 +673,3 @@ export default function App() {
           </motion.div>
         </div>
       )}
-
-      {/* Winner Modal */}
-      <AnimatePresence>
-        {showWinnerModal && (
-          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 md:p-12">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-ink/90 backdrop-blur-md"
-            />
-            
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="relative w-full max-w-md bg-ink border border-white/10 shadow-2xl rounded-3xl overflow-hidden p-8 md:p-10 mx-auto flex flex-col"
-            >
-              <button 
-                onClick={() => setShowWinnerModal(false)}
-                className="absolute top-4 right-4 z-10 p-2 text-white/50 hover:text-white transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-
-              {claimStep === 'announce' && (
-                <div className="flex flex-col items-center text-center mt-4">
-                  <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-8 border border-white/10">
-                    <Gift className="w-8 h-8 text-white" />
-                  </div>
-                  <div className="text-xs font-medium text-white/40 tracking-[0.2em] uppercase mb-4">Bonus Unlocked</div>
-                  <h3 className="text-3xl font-medium tracking-tight mb-4 text-white">
-                    Free Design Commission
-                  </h3>
-                  <p className="text-white/50 leading-relaxed mb-10 max-w-xs mx-auto">
-                    You hit the 2% daily drop rate. Let's build something cool on the house.
-                  </p>
-                  <button
-                    onClick={() => setClaimStep('form')}
-                    className="w-full py-4 bg-white text-ink rounded-full font-medium text-sm transition-colors duration-300 hover:bg-white/90"
-                  >
-                    Claim Project
-                  </button>
-                </div>
-              )}
-
-              {claimStep === 'form' && (
-                <div className="flex flex-col mt-2">
-                  <div className="text-xs font-medium text-white/40 tracking-[0.2em] uppercase mb-2">Claim Your</div>
-                  <h3 className="text-2xl font-medium tracking-tight mb-8 text-white">
-                    Free Commission
-                  </h3>
-                  <form className="flex flex-col gap-6" onSubmit={handleClaimSubmit}>
-                    <input 
-                      type="text" 
-                      placeholder="Name" 
-                      value={claimForm.name}
-                      onChange={(e) => setClaimForm({ ...claimForm, name: e.target.value })}
-                      className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-4 text-white placeholder-white/30 focus:outline-none focus:border-white/20 focus:bg-white/10 transition-all" 
-                      required 
-                    />
-                    <input 
-                      type="text" 
-                      placeholder="Email or Discord Username" 
-                      value={claimForm.contact}
-                      onChange={(e) => setClaimForm({ ...claimForm, contact: e.target.value })}
-                      className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-4 text-white placeholder-white/30 focus:outline-none focus:border-white/20 focus:bg-white/10 transition-all" 
-                      required 
-                    />
-                    <CustomSelect 
-                      value={claimForm.projectType}
-                      onChange={(val) => setClaimForm({ ...claimForm, projectType: val })}
-                      options={['Brand Identity', 'Streamer Graphics', 'Poster / Editorial', 'Merchandise', 'Other']}
-                      placeholder="Project Type"
-                    />
-                    <textarea 
-                      placeholder="Project Details & Ideas" 
-                      rows={3} 
-                      value={claimForm.details}
-                      onChange={(e) => setClaimForm({ ...claimForm, details: e.target.value })}
-                      className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-4 text-white placeholder-white/30 focus:outline-none focus:border-white/20 focus:bg-white/10 transition-all resize-none" 
-                      required
-                    ></textarea>
-                    <button 
-                      type="submit" 
-                      disabled={isClaimSubmitting}
-                      className="w-full py-4 bg-white text-ink rounded-full font-medium text-sm transition-colors duration-300 hover:bg-white/90 disabled:opacity-50 mt-2"
-                    >
-                      {isClaimSubmitting ? 'Submitting...' : 'Submit Claim'}
-                    </button>
-                  </form>
-                </div>
-              )}
-
-              {claimStep === 'success' && (
-                <div className="flex flex-col items-center text-center py-8">
-                  <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center mb-8 border border-white/10">
-                    <CheckCircle2 className="w-8 h-8 text-emerald-400" />
-                  </div>
-                  <h3 className="text-2xl font-medium tracking-tight mb-4 text-white">
-                    Claim Successful
-                  </h3>
-                  <p className="text-white/60 font-light leading-relaxed mb-8">
-                    I've received your project details and will be in touch with you shortly to get started on your free graphic.
-                  </p>
-                  <button
-                    onClick={() => setShowWinnerModal(false)}
-                    className="px-8 py-3 bg-white/10 hover:bg-white/20 rounded-full text-white font-medium text-sm transition-colors duration-300"
-                  >
-                    Close
-                  </button>
-                </div>
-              )}
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-      <Analytics />
-    </div>
-  );
-}
