@@ -157,6 +157,7 @@ export default function App() {
     } catch (err) {
       window.location.href = `mailto:?subject=${encodeURIComponent(`Project by Fin: ${project.title}`)}&body=${encodeURIComponent(text)}`;
     }
+  };
 
   const handleContactSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -673,3 +674,8 @@ export default function App() {
           </motion.div>
         </div>
       )}
+
+      <Analytics />
+    </div>
+  );
+}
